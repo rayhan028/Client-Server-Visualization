@@ -1,7 +1,5 @@
 #include <iostream>
 #include <csignal>
-#include <chrono>
-#include <thread>
 #include "TcpClient.hpp"
 
 static TcpClient* gClient = nullptr;
@@ -17,20 +15,18 @@ int main() {
     TcpClient client(true);
     gClient = &client;
 
-    // Connect
+    // Connect with retry
     while (true) {
         try {
             client.connectTo("127.0.0.1", 5000);
             break;
         } catch (...) {
-            std::cout << "[!] Retrying in 2s...\n";
+            std::cout << "[!] Retry in 2s...\n";
             std::this_thread::sleep_for(std::chrono::seconds(2));
         }
     }
 
-    // Start async loops
     client.startAsync();
-
     std::cout << "Commands: PING, TIME, EXIT\n";
 
     while (true) {
@@ -41,7 +37,6 @@ int main() {
         if (cmd.empty()) continue;
 
         client.sendCommand(cmd);
-
         if (cmd == "EXIT") break;
     }
 
