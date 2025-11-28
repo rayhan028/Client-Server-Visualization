@@ -1,56 +1,50 @@
 #include <iostream>
-#include <string>
-#include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <csignal>
+#include <chrono>
+#include <thread>
+#include "TcpClient.hpp"
+
+static TcpClient* gClient = nullptr;
+
+void handleSignal(int) {
+    if (gClient) gClient->stopAsync();
+    std::cout << "\n[!] Exiting...\n";
+    std::exit(0);
+}
 
 int main() {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        std::cerr << "Socket creation failed\n";
-        return 1;
+    signal(SIGINT, handleSignal);
+    TcpClient client(true);
+    gClient = &client;
+
+    // Connect
+    while (true) {
+        try {
+            client.connectTo("127.0.0.1", 5000);
+            break;
+        } catch (...) {
+            std::cout << "[!] Retrying in 2s...\n";
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
     }
 
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(5000);
+    // Start async loops
+    client.startAsync();
 
-    if (inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr) <= 0) {
-        std::cerr << "Invalid address\n";
-        return 1;
-    }
-
-    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-        std::cerr << "Connection failed\n";
-        return 1;
-    }
-
-    std::cout << "Connected to server!\n";
-    std::cout << "Commands: PING, TIME, EXIT\n\n";
+    std::cout << "Commands: PING, TIME, EXIT\n";
 
     while (true) {
-        std::string input;
         std::cout << "> ";
-        std::getline(std::cin, input);
+        std::string cmd;
+        std::getline(std::cin, cmd);
 
-        input += "\n";
-        send(sock, input.c_str(), input.size(), 0);
+        if (cmd.empty()) continue;
 
-        char buffer[1024] = {0};
-        ssize_t bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        client.sendCommand(cmd);
 
-        if (bytes <= 0) {
-            std::cout << "Server disconnected.\n";
-            break;
-        }
-
-        std::cout << "Server: " << buffer;
-
-        if (input == "EXIT\n")
-            break;
+        if (cmd == "EXIT") break;
     }
 
-    close(sock);
+    client.stopAsync();
     return 0;
 }
