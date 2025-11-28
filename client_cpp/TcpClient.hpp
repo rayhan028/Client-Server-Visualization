@@ -1,9 +1,12 @@
-#ifndef TCP_CLIENT_HPP
-#define TCP_CLIENT_HPP
+#ifndef TCPCLIENT_HPP
+#define TCPCLIENT_HPP
 
 #include <string>
-#include <vector>
-#include <chrono>
+#include <optional>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <queue>
 
 class TcpClient {
 public:
@@ -11,17 +14,29 @@ public:
     ~TcpClient();
 
     void connectTo(const std::string& ip, uint16_t port);
-    void sendLine(const std::string& line);
-    std::string recvLine();
-    bool isConnected() const { return connected; }
+    void disconnect();
+    bool isConnected() const;
+
+    void sendCommand(const std::string& cmd);
+    std::optional<std::string> receive();
+
+    void startAsync();   // Starts send/recv threads
+    void stopAsync();    // Stops threads
 
 private:
-    int sock;
-    bool debug;
-    bool connected;
+    int sock_;
+    bool debug_;
+    std::atomic<bool> running_;
 
-    void closeSocket();
-    std::string timestamp() const;
+    std::thread recvThread_;
+    std::thread sendThread_;
+
+    std::mutex queueMutex_;
+    std::queue<std::string> sendQueue_;
+
+    void sendLoop();
+    void recvLoop();
+    void log(const std::string& msg, const std::string& color="");
 };
 
 #endif
