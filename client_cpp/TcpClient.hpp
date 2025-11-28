@@ -20,8 +20,8 @@ public:
     void sendCommand(const std::string& cmd);
     std::optional<std::string> receive();
 
-    void startAsync();   // Starts send/recv threads
-    void stopAsync();    // Stops threads
+    void startAsync();
+    void stopAsync();
 
 private:
     int sock_;
